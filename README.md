@@ -28,7 +28,7 @@ src/my_stremio/
   stremio.py       # biblioteca e progresso da conta
   tmdb.py          # notas, candidatos, metadados
   scorers/         # base.py (interface), haiku.py, jev.py
-addon/             # manifest.json + catálogos gerados (publicados no Pages)
+addon/             # (vazio) — o addon é gerado no Actions e publicado no Pages em caminho secreto
 data/              # cache local — ignorado pelo git
 ```
 
