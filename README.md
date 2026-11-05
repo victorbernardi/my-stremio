@@ -50,5 +50,5 @@ Segredos ficam **só** no `.env` (local) e em GitHub Secrets (Actions). Nunca no
 - [ ] Geração de candidatos e deduplicação do que já foi visto
 - [ ] Geração do addon estático + GitHub Pages
 - [ ] Workflow diário no Actions
-- [ ] Scorer Jev
+- [x] Scorer Jev (principal) com Haiku de reserva
 - [ ] Avaliação offline (holdout das notas → AUC / NDCG)

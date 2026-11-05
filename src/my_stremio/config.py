@@ -48,7 +48,7 @@ def load() -> Settings:
         tmdb_read_token=_req("TMDB_READ_TOKEN"),
         tmdb_account_id=os.getenv("TMDB_ACCOUNT_ID"),
         tmdb_session_id=os.getenv("TMDB_SESSION_ID"),
-        scorer=os.getenv("SCORER", "haiku"),
+        scorer=os.getenv("SCORER", "auto"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-5-5"),
         typesafe_api_key=os.getenv("TYPESAFE_API_KEY"),
