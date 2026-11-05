@@ -1,0 +1,14 @@
+# Segredos — NUNCA versionar
+.env
+*.key
+
+# Dados pessoais (histórico, notas, perfil)
+data/*
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
