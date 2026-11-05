@@ -6,7 +6,8 @@ Pedido (JSON, sempre criptografado no repo público):
      {"op": "install", "url": "https://.../manifest.json", "position": 2},   # position opcional (1 = topo)
      {"op": "remove",  "match": "Torrentio"},                               # nome, id ou trecho da URL
      {"op": "move",    "match": "Para Você", "position": 1},
-     {"op": "restore"}                                                      # volta ao último backup
+     {"op": "restore"},                                                     # volta ao último backup
+     {"op": "inspect", "match": "Comet"}                                    # versão/recursos (sem URL)
   ]}
 
 Regras de segurança (repo público):
@@ -92,7 +93,17 @@ def run(request: dict, backup_path: Path, restore_path: Path | None) -> None:
     print_list(addons, "Coleção atual:")
 
     ops = request.get("actions", [])
-    if all(o["op"] == "list" for o in ops):
+    for o in ops:
+        if o["op"] == "inspect":
+            m = o["match"].lower()
+            for i, a in enumerate(addons, 1):
+                man = a.get("manifest", {})
+                if m in man.get("name", "").lower() or m in man.get("id", "").lower():
+                    print(f"\n#{i} {_name(a)} v{man.get('version')}")
+                    print(f"   recursos: {[r if isinstance(r, str) else r.get('name') for r in man.get('resources', [])]}")
+                    print(f"   tipos: {man.get('types')} | catálogos: {len(man.get('catalogs', []))}")
+                    print(f"   descrição: {(man.get('description') or '')[:300]}")
+    if all(o["op"] in ("list", "inspect") for o in ops):
         return
 
     backup_path.write_text(json.dumps(addons))
@@ -100,7 +111,7 @@ def run(request: dict, backup_path: Path, restore_path: Path | None) -> None:
 
     for o in ops:
         op = o["op"]
-        if op == "list":
+        if op in ("list", "inspect"):
             continue
         if op == "restore":
             if not restore_path or not restore_path.exists():
