@@ -36,9 +36,14 @@ def collect_signals(s, tmdb: TMDB) -> dict:
         if found:
             items[(kind, found[0]["id"])] = {"title": sig["name"], **sig}
 
-    if s.tmdb_account_id and s.tmdb_session_id:
+    account_id, session_id = s.tmdb_account_id, s.tmdb_session_id
+    if not session_id and s.tmdb_username and s.tmdb_password:
+        account_id, session_id = tmdb.login(s.tmdb_username, s.tmdb_password)
+    if not session_id:
+        print("Aviso: sem acesso às notas do TMDB — usando só o histórico do Stremio.")
+    if account_id and session_id:
         for kind, path in (("movie", "movies"), ("tv", "tv")):
-            for r in tmdb.rated(s.tmdb_account_id, s.tmdb_session_id, path):
+            for r in tmdb.rated(account_id, session_id, path):
                 key = (kind, r["id"])
                 items.setdefault(key, {"title": _title(r)})
                 items[key]["rating"] = r.get("rating")

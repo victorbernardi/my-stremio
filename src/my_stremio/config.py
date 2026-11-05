@@ -20,6 +20,8 @@ class Settings:
     tmdb_read_token: str
     tmdb_account_id: str | None
     tmdb_session_id: str | None
+    tmdb_username: str | None
+    tmdb_password: str | None
     scorer: str
     anthropic_api_key: str | None
     anthropic_model: str
@@ -49,6 +51,8 @@ def load() -> Settings:
         tmdb_read_token=_req("TMDB_READ_TOKEN"),
         tmdb_account_id=os.getenv("TMDB_ACCOUNT_ID"),
         tmdb_session_id=os.getenv("TMDB_SESSION_ID"),
+        tmdb_username=os.getenv("TMDB_USERNAME"),
+        tmdb_password=os.getenv("TMDB_PASSWORD"),
         scorer=os.getenv("SCORER", "auto"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-5-5"),

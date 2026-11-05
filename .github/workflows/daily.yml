@@ -33,6 +33,8 @@ jobs:
           TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
           TMDB_ACCOUNT_ID: ${{ secrets.TMDB_ACCOUNT_ID }}
           TMDB_SESSION_ID: ${{ secrets.TMDB_SESSION_ID }}
+          TMDB_USERNAME: ${{ secrets.TMDB_USERNAME }}
+          TMDB_PASSWORD: ${{ secrets.TMDB_PASSWORD }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           COMMAND_CODE_API_KEY: ${{ secrets.COMMAND_CODE_API_KEY }}

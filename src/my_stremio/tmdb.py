@@ -28,6 +28,22 @@ class TMDB:
             page += 1
         return out
 
+    # --- Login sem navegador -----------------------------------------------
+    def login(self, username: str, password: str) -> tuple[str, str]:
+        """Valida um request token com usuário/senha e devolve (account_id, session_id)."""
+        token = self._get("/authentication/token/new")["request_token"]
+        r = self.c.post(
+            "/authentication/token/validate_with_login",
+            json={"username": username, "password": password, "request_token": token},
+        )
+        if r.status_code != 200:
+            raise RuntimeError(f"Login TMDB falhou ({r.status_code}): {r.json().get('status_message')}")
+        r = self.c.post("/authentication/session/new", json={"request_token": token})
+        r.raise_for_status()
+        session_id = r.json()["session_id"]
+        account_id = str(self._get("/account", session_id=session_id)["id"])
+        return account_id, session_id
+
     # --- Labels -----------------------------------------------------------
     def rated(self, account_id: str, session_id: str, kind: str) -> list[dict]:
         """kind: 'movies' | 'tv'. Retorna itens com campo 'rating' (0.5–10)."""
