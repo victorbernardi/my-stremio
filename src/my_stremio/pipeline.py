@@ -36,6 +36,23 @@ def collect_signals(s, tmdb: TMDB) -> dict:
         if found:
             items[(kind, found[0]["id"])] = {"title": sig["name"], **sig}
 
+    # Reações no Stremio: ❤️ = nota 10, 👍 = nota 8 (nota do TMDB, se houver, sobrescreve depois)
+    by_imdb = {it["imdb_id"]: key for key, it in items.items() if it.get("imdb_id")}
+    reactions = stremio.fetch_reactions(s.stremio_auth_key)
+    for imdb_id, status in reactions.items():
+        key = by_imdb.get(imdb_id)
+        if not key:  # reagiu a algo que não está na biblioteca
+            for kind in ("movie", "tv"):
+                found = tmdb.find_imdb(imdb_id).get(f"{kind}_results", [])
+                if found:
+                    key = (kind, found[0]["id"])
+                    items.setdefault(key, {"title": _title(found[0]), "year": _year(found[0]), "imdb_id": imdb_id})
+                    break
+        if key:
+            items[key]["rating"] = 10 if status == "loved" else 8
+    print(f"Reações Stremio: {sum(v == 'loved' for v in reactions.values())} amei | "
+          f"{sum(v == 'liked' for v in reactions.values())} gostei")
+
     account_id, session_id = s.tmdb_account_id, s.tmdb_session_id
     if not session_id and s.tmdb_username and s.tmdb_password:
         account_id, session_id = tmdb.login(s.tmdb_username, s.tmdb_password)
