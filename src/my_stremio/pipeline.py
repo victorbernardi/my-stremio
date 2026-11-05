@@ -51,6 +51,7 @@ def collect_signals(s, tmdb: TMDB) -> dict:
                     break
         if key:
             items[key]["rating"] = 10 if status == "loved" else 8
+            items[key]["reaction"] = status
     print(f"Reações Stremio: {sum(v == 'loved' for v in reactions.values())} amei | "
           f"{sum(v == 'liked' for v in reactions.values())} gostei")
 
@@ -235,6 +236,16 @@ def main() -> None:
         dominant = {g for g, _ in sorted(counts.items(), key=lambda x: -x[1])[:3]}
         outside = [c for c in pool if not dominant & set(c.get("genre_ids", [])) and p(c) >= 0.4]
         catalogs[(stype, "fora-da-bolha")] = pick(outside, stype, 30)
+
+    # Snapshot do que foi recomendado hoje (para a avaliação mensal; vai criptografado)
+    snap = os.getenv("SNAPSHOT_PATH")
+    if snap:
+        rows = [
+            {"catalog": slug, "type": st, "rank": i, "tmdb_id": m["_poster"]["tmdb_id"],
+             "kind": m["_poster"]["kind"], "imdb": m["id"], "p_like": round(m["_poster"]["p_like"], 4)}
+            for (st, slug), metas in catalogs.items() for i, m in enumerate(metas, 1)
+        ]
+        Path(snap).write_text(json.dumps({"date": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "items": rows}))
 
     # Pôsteres com selo "% p/ você" + notas RT/IMDb/Metacritic (um por título, sem repetir)
     posters.mask_key()

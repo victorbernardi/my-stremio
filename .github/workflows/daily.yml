@@ -9,7 +9,7 @@ on:
     paths: ["src/**", "requirements.txt", ".github/workflows/daily.yml", ".github/refresh"]
 
 permissions:
-  contents: read
+  contents: write   # grava o histórico criptografado na branch "data"
   pages: write
   id-token: write
 
@@ -42,7 +42,28 @@ jobs:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           COMMAND_CODE_API_KEY: ${{ secrets.COMMAND_CODE_API_KEY }}
           MDBLIST_API_KEY: ${{ secrets.MDBLIST_API_KEY }}
+          SNAPSHOT_PATH: ${{ runner.temp }}/snapshot.json
         run: python -m my_stremio.pipeline build/addon
+      - name: Registrar recomendações do dia (criptografado)
+        env:
+          IMPORT_KEY: ${{ secrets.IMPORT_KEY }}
+          SNAP: ${{ runner.temp }}/snapshot.json
+        run: |
+          set -euo pipefail
+          [ -f "$SNAP" ] || exit 0
+          T="$RUNNER_TEMP"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q origin data; then git worktree add -q "$T/data" origin/data; git -C "$T/data" checkout -q -B data;
+          else git worktree add -q --orphan -b data "$T/data"; fi
+          if [ -f "$T/data/history.enc" ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:IMPORT_KEY -in "$T/data/history.enc" -out "$T/history.jsonl"
+          fi
+          python scripts/history.py "$T/history.jsonl" "$SNAP"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:IMPORT_KEY -in "$T/history.jsonl" -out "$T/data/history.enc"
+          rm -f "$T/history.jsonl" "$SNAP"
+          git -C "$T/data" add history.enc
+          git -C "$T/data" commit -qm "Histórico $(date -u +%F)" && git -C "$T/data" push -q origin data
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/addon

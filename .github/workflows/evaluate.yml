@@ -1,0 +1,46 @@
+name: Avaliação mensal do recomendador
+
+on:
+  schedule:
+    - cron: "41 11 1 * *"   # dia 1 de cada mês, 08:41 em Brasília
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/evaluate"]
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -q -r requirements.txt
+      - name: Avaliar
+        env:
+          PYTHONPATH: src
+          IMPORT_KEY: ${{ secrets.IMPORT_KEY }}
+          STREMIO_AUTH_KEY: ${{ secrets.STREMIO_AUTH_KEY }}
+          STREMIO_EMAIL: ${{ secrets.STREMIO_EMAIL }}
+          STREMIO_PASSWORD: ${{ secrets.STREMIO_PASSWORD }}
+          TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
+          TMDB_USERNAME: ${{ secrets.TMDB_USERNAME }}
+          TMDB_PASSWORD: ${{ secrets.TMDB_PASSWORD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          COMMAND_CODE_API_KEY: ${{ secrets.COMMAND_CODE_API_KEY }}
+        run: |
+          set -euo pipefail
+          H=""
+          if git fetch -q origin data 2>/dev/null; then
+            git show origin/data:history.enc > "$RUNNER_TEMP/h.enc"
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:IMPORT_KEY -in "$RUNNER_TEMP/h.enc" -out "$RUNNER_TEMP/h.jsonl"
+            H="$RUNNER_TEMP/h.jsonl"
+          fi
+          python -m my_stremio.evaluate $H
+          rm -f "$RUNNER_TEMP"/h.*
