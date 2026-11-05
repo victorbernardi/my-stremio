@@ -30,9 +30,21 @@ class Settings:
     catalog_size: int
 
 
+def _stremio_auth_key() -> str:
+    """Usa STREMIO_AUTH_KEY se existir; senão faz login com STREMIO_EMAIL/STREMIO_PASSWORD."""
+    key = os.getenv("STREMIO_AUTH_KEY")
+    if key:
+        return key
+    email, password = os.getenv("STREMIO_EMAIL"), os.getenv("STREMIO_PASSWORD")
+    if email and password:
+        from .stremio import login
+        return login(email, password)
+    raise RuntimeError("Defina STREMIO_AUTH_KEY ou STREMIO_EMAIL + STREMIO_PASSWORD.")
+
+
 def load() -> Settings:
     return Settings(
-        stremio_auth_key=_req("STREMIO_AUTH_KEY"),
+        stremio_auth_key=_stremio_auth_key(),
         tmdb_read_token=_req("TMDB_READ_TOKEN"),
         tmdb_account_id=os.getenv("TMDB_ACCOUNT_ID"),
         tmdb_session_id=os.getenv("TMDB_SESSION_ID"),
