@@ -2,7 +2,7 @@ name: Recomendações diárias
 
 on:
   schedule:
-    - cron: "17 9 * * *"   # 06:17 em Brasília
+    - cron: "17 9 * * *"   # 06:17 em Brasília (09:17 UTC)
   workflow_dispatch:
   push:
     branches: [main]
