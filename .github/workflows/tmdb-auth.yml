@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       request_token:
-        description: "Vazio = gerar link | token = criar sessão | limpar = só apagar runs antigos"
+        description: "Vazio = gerar link e aguardar aprovação | limpar = apagar runs antigos"
         required: false
         default: ""
 
@@ -15,6 +15,7 @@ permissions:
 jobs:
   auth:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Apagar runs anteriores deste workflow
         env:
