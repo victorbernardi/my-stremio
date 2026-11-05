@@ -46,7 +46,7 @@ def main() -> None:
     out("Em Settings → Secrets and variables → Actions → New repository secret:\n")
     out(f"- `TMDB_ACCOUNT_ID` = `{account['id']}`")
     out(f"- `TMDB_SESSION_ID` = `{session_id}`")
-    out("\nDepois apague este run (⋯ → Delete workflow run) para o session_id não ficar no histórico.")
+    out("\nDepois de salvar, rode este workflow com `limpar` no campo — ele apaga este run e o session_id some do histórico.")
 
 
 if __name__ == "__main__":

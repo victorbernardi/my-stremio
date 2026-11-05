@@ -4,23 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       request_token:
-        description: "Vazio no 1º run. No 2º, cole o request_token gerado."
+        description: "Vazio = gerar link | token = criar sessão | limpar = só apagar runs antigos"
         required: false
         default: ""
 
 permissions:
   contents: read
+  actions: write   # para apagar os runs anteriores deste workflow
 
 jobs:
   auth:
     runs-on: ubuntu-latest
     steps:
+      - name: Apagar runs anteriores deste workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/workflows/tmdb-auth.yml/runs?per_page=100" \
+            --jq '.workflow_runs[] | select(.id != ${{ github.run_id }}) | .id' |
+          while read -r id; do gh api -X DELETE "repos/${{ github.repository }}/actions/runs/$id" && echo "apagado $id"; done
       - uses: actions/checkout@v4
+        if: inputs.request_token != 'limpar'
       - uses: actions/setup-python@v5
+        if: inputs.request_token != 'limpar'
         with:
           python-version: "3.12"
       - run: pip install -q httpx
+        if: inputs.request_token != 'limpar'
       - name: Autorizar
+        if: inputs.request_token != 'limpar'
         env:
           TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
           REQUEST_TOKEN: ${{ inputs.request_token }}

@@ -48,12 +48,23 @@ class JevScorer:
     def __init__(self, api_key: str | None, provider: str = "commandcode", workers: int = 12):
         if not api_key:
             raise RuntimeError("Chave do Jev ausente (COMMAND_CODE_API_KEY ou TYPESAFE_API_KEY).")
-        self.url, model = PROVIDERS[provider]
         self.client = httpx.Client(
             headers={"Authorization": f"Bearer {api_key}"}, timeout=30
         )
-        self.model = model
         self.workers = workers
+        self.url, self.model = self._detect(provider)
+
+    def _detect(self, preferred: str) -> tuple[str, str]:
+        """Testa o provedor preferido e depois o outro; fica com o que aceitar a chave."""
+        order = [preferred] + [p for p in PROVIDERS if p != preferred]
+        probe = {"state": "teste", "questions": {"ok": {"type": "noul", "instructions": "Isto é um teste"}}}
+        for name in order:
+            url, model = PROVIDERS[name]
+            r = self.client.post(url, json={**probe, "model": model})
+            if r.status_code not in (401, 403):
+                print(f"Jev: provedor {name} ({r.status_code})")
+                return url, model
+        raise RuntimeError("A chave do Jev não foi aceita pela Command Code nem pela TypeSafe.")
 
     def _one(self, profile: str, c: dict) -> Score | None:
         state = {
