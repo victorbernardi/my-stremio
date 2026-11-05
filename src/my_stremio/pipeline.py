@@ -93,7 +93,8 @@ def build_profile(items: dict) -> tuple[str, list[tuple[str, int]]]:
         "ABANDONOU NO INÍCIO: " + "; ".join(abandoned[:15]),
     ])
     seeds = [k for _, _, k in loved[:15]] + [k for _, _, k in watched[:10]]
-    return profile, seeds
+    favorites = [(k, l.split(" (")[0]) for r, l, k in loved[:15] if r >= 9]
+    return profile, seeds, favorites
 
 
 def gather_candidates(tmdb: TMDB, seeds, seen: set, limit: int) -> list[dict]:
@@ -104,32 +105,44 @@ def gather_candidates(tmdb: TMDB, seeds, seen: set, limit: int) -> list[dict]:
                 key = (kind, c["id"])
                 if key in seen or c.get("vote_count", 0) < 50:
                     continue
-                entry = pool.setdefault(key, {**c, "kind": kind, "hits": 0})
+                entry = pool.setdefault(key, {**c, "kind": kind, "hits": 0, "sources": set()})
                 entry["hits"] += 1  # quantas sementes apontam pra ele
+                entry["sources"].add((kind, tid))
     ranked = sorted(pool.values(), key=lambda c: (c["hits"], c.get("vote_average", 0)), reverse=True)
     return ranked[:limit]
 
 
-def write_addon(out: Path, ranked: dict[str, list[dict]]) -> None:
+CATALOGS = [
+    ("para-voce", "Para Você"),
+    ("porque-amou", "Porque você amou ❤️"),
+    ("joias", "Joias escondidas"),
+    ("fora-da-bolha", "Fora da bolha"),
+]
+
+
+def write_addon(out: Path, catalogs: dict[tuple[str, str], list[dict]]) -> None:
+    """catalogs: {(stype, slug): metas}"""
     manifest = {
         "id": "com.victorbernardi.mystremio",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "name": "Para Você",
         "description": "Recomendações pessoais geradas diariamente a partir do meu histórico e notas.",
         "resources": ["catalog"],
         "types": ["movie", "series"],
         "idPrefixes": ["tt"],
         "catalogs": [
-            {"type": "movie", "id": "para-voce-filmes", "name": "Para Você — Filmes"},
-            {"type": "series", "id": "para-voce-series", "name": "Para Você — Séries"},
+            {"type": stype, "id": f"{slug}-{suffix}", "name": f"{name} — {label}"}
+            for slug, name in CATALOGS
+            for stype, suffix, label in (("movie", "filmes", "Filmes"), ("series", "series", "Séries"))
         ],
     }
     out.mkdir(parents=True, exist_ok=True)
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False))
-    for stype, cid in (("movie", "para-voce-filmes"), ("series", "para-voce-series")):
+    for (stype, slug), metas in catalogs.items():
+        suffix = "filmes" if stype == "movie" else "series"
         d = out / "catalog" / stype
         d.mkdir(parents=True, exist_ok=True)
-        (d / f"{cid}.json").write_text(json.dumps({"metas": ranked[stype]}, ensure_ascii=False))
+        (d / f"{slug}-{suffix}.json").write_text(json.dumps({"metas": metas}, ensure_ascii=False))
     (out / ".nojekyll").write_text("")
 
 
@@ -140,7 +153,7 @@ def main() -> None:
     scorer = get_scorer(s)
 
     items = collect_signals(s, tmdb)
-    profile, seeds = build_profile(items)
+    profile, seeds, favorites = build_profile(items)
     print(f"Sinais: {len(items)} títulos | sementes: {len(seeds)}")
     if not seeds:
         raise SystemExit("Sem sementes: avalie títulos no TMDB ou assista algo no Stremio.")
@@ -160,39 +173,86 @@ def main() -> None:
     scores = {sc.tmdb_id: sc for sc in scorer.score(profile, payload)}
     print(f"Candidatos: {len(candidates)} | pontuados: {len(scores)}")
 
-    ranked: dict[str, list[dict]] = {"movie": [], "series": []}
-    for c in sorted(candidates, key=lambda c: scores[c["id"]].p_like if c["id"] in scores else 0, reverse=True):
-        stype = "movie" if c["kind"] == "movie" else "series"
-        if len(ranked[stype]) >= s.catalog_size or c["id"] not in scores:
-            continue
-        imdb = tmdb.external_ids(c["kind"], c["id"]).get("imdb_id")
-        if not imdb:
-            continue
-        sc = scores[c["id"]]
-        ranked[stype].append({
-            "id": imdb,
-            "type": stype,
-            "name": _title(c),
-            "poster": f"{IMG}{c['poster_path']}" if c.get("poster_path") else None,
-            "releaseInfo": _year(c),
-            "description": f"[{sc.p_like:.0%} · {sc.reason}] {c.get('overview', '')}",
-            "_poster": {"imdb": imdb, "kind": c["kind"], "tmdb_id": c["id"],
-                        "poster_path": c.get("poster_path"), "p_like": sc.p_like},
-        })
+    by_id = {c["id"]: c for c in candidates if c["id"] in scores}
+    p = lambda c: scores[c["id"]].p_like  # noqa: E731
+    stype_of = lambda c: "movie" if c["kind"] == "movie" else "series"  # noqa: E731
+    imdb_cache: dict[int, str | None] = {}
 
-    # Pôsteres com selo "% p/ você" + notas RT/IMDb/Metacritic
+    def imdb_of(c) -> str | None:
+        if c["id"] not in imdb_cache:
+            imdb_cache[c["id"]] = tmdb.external_ids(c["kind"], c["id"]).get("imdb_id")
+        return imdb_cache[c["id"]]
+
+    def pick(pool, stype, n, note=lambda c: "") -> list[dict]:
+        metas = []
+        for c in sorted(pool, key=p, reverse=True):
+            if stype_of(c) != stype or len(metas) >= n:
+                continue
+            imdb = imdb_of(c)
+            if not imdb:
+                continue
+            sc = scores[c["id"]]
+            extra = note(c)
+            metas.append({
+                "id": imdb, "type": stype, "name": _title(c),
+                "poster": f"{IMG}{c['poster_path']}" if c.get("poster_path") else None,
+                "releaseInfo": _year(c),
+                "description": f"[{sc.p_like:.0%} · {sc.reason}]{' ' + extra if extra else ''} {c.get('overview', '')}",
+                "_poster": {"imdb": imdb, "kind": c["kind"], "tmdb_id": c["id"],
+                            "poster_path": c.get("poster_path"), "p_like": sc.p_like},
+            })
+        return metas
+
+    pool = list(by_id.values())
+    catalogs: dict[tuple[str, str], list[dict]] = {}
+    day = datetime.now(timezone.utc).toordinal()
+
+    for stype in ("movie", "series"):
+        kind = "movie" if stype == "movie" else "tv"
+        # 1) Para Você — o ranking geral
+        catalogs[(stype, "para-voce")] = pick(pool, stype, s.catalog_size)
+
+        # 2) Porque você amou X — um favorito diferente por dia
+        favs = [(k, t) for k, t in favorites if k[0] == kind]
+        favs = [(k, t) for k, t in favs if sum(k in c["sources"] for c in pool) >= 8] or favs
+        if favs:
+            fav_key, fav_title = favs[day % len(favs)]
+            near = [c for c in pool if fav_key in c["sources"]]
+            catalogs[(stype, "porque-amou")] = pick(near, stype, 30, lambda c, t=fav_title: f"Porque você amou {t}.")
+        else:
+            catalogs[(stype, "porque-amou")] = []
+
+        # 3) Joias escondidas — você deve gostar, público aprova, pouca gente viu
+        gems = [c for c in pool if c.get("vote_average", 0) >= 7.2 and c.get("vote_count", 0) < 1500 and p(c) >= 0.5]
+        catalogs[(stype, "joias")] = pick(gems, stype, 30)
+
+        # 4) Fora da bolha — fora dos 3 gêneros dominantes do seu ranking, mas com boa previsão
+        top = catalogs[(stype, "para-voce")]
+        counts: dict[int, int] = {}
+        for m in top:
+            for g in by_id[m["_poster"]["tmdb_id"]].get("genre_ids", []):
+                counts[g] = counts.get(g, 0) + 1
+        dominant = {g for g, _ in sorted(counts.items(), key=lambda x: -x[1])[:3]}
+        outside = [c for c in pool if not dominant & set(c.get("genre_ids", [])) and p(c) >= 0.4]
+        catalogs[(stype, "fora-da-bolha")] = pick(outside, stype, 30)
+
+    # Pôsteres com selo "% p/ você" + notas RT/IMDb/Metacritic (um por título, sem repetir)
     posters.mask_key()
-    all_items = [m.pop("_poster") for lst in ranked.values() for m in lst]
+    unique = {}
+    for metas in catalogs.values():
+        for m in metas:
+            unique.setdefault(m["id"], m["_poster"])
     base = os.getenv("PAGES_BASE_URL", "https://victorbernardi.github.io/my-stremio")
-    urls = posters.build(out, all_items, os.getenv("MDBLIST_API_KEY"), base,
+    urls = posters.build(out, list(unique.values()), os.getenv("MDBLIST_API_KEY"), base,
                          datetime.now(timezone.utc).strftime("%Y%m%d"))
-    for lst in ranked.values():
-        for m in lst:
+    for metas in catalogs.values():
+        for m in metas:
+            m.pop("_poster", None)
             m["poster"] = urls.get(m["id"], m["poster"])
 
-    write_addon(out, ranked)
-    print(f"Addon gerado em {out} — {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC | "
-          f"filmes: {len(ranked['movie'])} | séries: {len(ranked['series'])}")
+    write_addon(out, catalogs)
+    resumo = " | ".join(f"{slug}-{st}: {len(v)}" for (st, slug), v in catalogs.items())
+    print(f"Addon gerado em {out} — {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC | {resumo}")
 
 
 if __name__ == "__main__":
