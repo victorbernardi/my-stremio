@@ -57,6 +57,9 @@ def _name(a: dict) -> str:
 
 def _find(addons: list[dict], match: str) -> int:
     m = match.lower()
+    exact = [i for i, a in enumerate(addons) if a.get("manifest", {}).get("id", "").lower() == m]
+    if len(exact) == 1:  # id exato tem prioridade sobre trechos de nome/URL
+        return exact[0]
     hits = [
         i for i, a in enumerate(addons)
         if m in a.get("manifest", {}).get("name", "").lower()
