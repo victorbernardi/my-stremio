@@ -3,11 +3,12 @@
 Uso: python -m my_stremio.pipeline [pasta_saida]   (padrão: build/addon)
 """
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import config, stremio
+from . import config, posters, stremio
 from .scorers.base import get_scorer
 from .tmdb import TMDB
 
@@ -175,7 +176,19 @@ def main() -> None:
             "poster": f"{IMG}{c['poster_path']}" if c.get("poster_path") else None,
             "releaseInfo": _year(c),
             "description": f"[{sc.p_like:.0%} · {sc.reason}] {c.get('overview', '')}",
+            "_poster": {"imdb": imdb, "kind": c["kind"], "tmdb_id": c["id"],
+                        "poster_path": c.get("poster_path"), "p_like": sc.p_like},
         })
+
+    # Pôsteres com selo "% p/ você" + notas RT/IMDb/Metacritic
+    posters.mask_key()
+    all_items = [m.pop("_poster") for lst in ranked.values() for m in lst]
+    base = os.getenv("PAGES_BASE_URL", "https://victorbernardi.github.io/my-stremio")
+    urls = posters.build(out, all_items, os.getenv("MDBLIST_API_KEY"), base,
+                         datetime.now(timezone.utc).strftime("%Y%m%d"))
+    for lst in ranked.values():
+        for m in lst:
+            m["poster"] = urls.get(m["id"], m["poster"])
 
     write_addon(out, ranked)
     print(f"Addon gerado em {out} — {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC | "

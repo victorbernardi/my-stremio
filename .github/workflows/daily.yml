@@ -41,6 +41,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           COMMAND_CODE_API_KEY: ${{ secrets.COMMAND_CODE_API_KEY }}
+          MDBLIST_API_KEY: ${{ secrets.MDBLIST_API_KEY }}
         run: python -m my_stremio.pipeline build/addon
       - uses: actions/upload-pages-artifact@v3
         with:
