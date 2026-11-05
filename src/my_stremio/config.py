@@ -47,6 +47,11 @@ def _stremio_auth_key() -> str:
     raise RuntimeError("Defina STREMIO_AUTH_KEY ou STREMIO_EMAIL + STREMIO_PASSWORD.")
 
 
+def load_stremio_only() -> str:
+    """Só a authKey do Stremio (usado pelo gerenciador de addons)."""
+    return _stremio_auth_key()
+
+
 def load() -> Settings:
     return Settings(
         stremio_auth_key=_stremio_auth_key(),

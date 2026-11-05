@@ -1,0 +1,56 @@
+name: Gerenciar addons do Stremio
+
+on:
+  push:
+    branches: [main]
+    paths: ["requests/addons.enc"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stremio-addons
+  cancel-in-progress: false
+
+jobs:
+  addons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q -r requirements.txt
+
+      - name: Recuperar último backup (criptografado)
+        uses: actions/cache/restore@v4
+        with:
+          path: backup/latest.enc
+          key: addons-backup-${{ github.run_id }}
+          restore-keys: addons-backup-
+
+      - name: Aplicar pedido
+        env:
+          PYTHONPATH: src
+          IMPORT_KEY: ${{ secrets.IMPORT_KEY }}
+          STREMIO_AUTH_KEY: ${{ secrets.STREMIO_AUTH_KEY }}
+          STREMIO_EMAIL: ${{ secrets.STREMIO_EMAIL }}
+          STREMIO_PASSWORD: ${{ secrets.STREMIO_PASSWORD }}
+        run: |
+          set -euo pipefail
+          dec() { openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:IMPORT_KEY -in "$1" -out "$2"; }
+          enc() { openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:IMPORT_KEY -in "$1" -out "$2"; }
+          T="$RUNNER_TEMP"; mkdir -p backup
+          dec requests/addons.enc "$T/req.json"
+          PREV=""
+          if [ -f backup/latest.enc ]; then dec backup/latest.enc "$T/prev.json"; PREV="$T/prev.json"; fi
+          python -m my_stremio.addons "$T/req.json" "$T/new.json" $PREV
+          if [ -f "$T/new.json" ]; then enc "$T/new.json" backup/latest.enc; echo "SAVE_BACKUP=1" >> "$GITHUB_ENV"; fi
+          rm -f "$T"/*.json
+
+      - name: Guardar backup (criptografado)
+        if: env.SAVE_BACKUP == '1'
+        uses: actions/cache/save@v4
+        with:
+          path: backup/latest.enc
+          key: addons-backup-${{ github.run_id }}
