@@ -1,0 +1,21 @@
+name: Limpeza de runs antigos
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/cleanup-runs.yml"]
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apagar todos os runs exceto este
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs?per_page=100" \
+            --jq '.workflow_runs[] | select(.id != ${{ github.run_id }}) | .id' |
+          while read -r id; do gh api -X DELETE "repos/${{ github.repository }}/actions/runs/$id" && echo "apagado $id"; done
