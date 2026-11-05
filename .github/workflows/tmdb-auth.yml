@@ -1,0 +1,27 @@
+name: TMDB — autorização única
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_token:
+        description: "Vazio no 1º run. No 2º, cole o request_token gerado."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  auth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q httpx
+      - name: Autorizar
+        env:
+          TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
+          REQUEST_TOKEN: ${{ inputs.request_token }}
+        run: python scripts/tmdb_auth.py "$REQUEST_TOKEN"
