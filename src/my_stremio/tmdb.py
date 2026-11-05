@@ -47,6 +47,9 @@ class TMDB:
     def external_ids(self, kind: str, tmdb_id: int) -> dict:
         return self._get(f"/{kind}/{tmdb_id}/external_ids")
 
+    def genres(self, kind: str) -> dict[int, str]:
+        return {g["id"]: g["name"] for g in self._get(f"/genre/{kind}/list")["genres"]}
+
     # --- Features ---------------------------------------------------------
     def details(self, kind: str, tmdb_id: int) -> dict:
         return self._get(f"/{kind}/{tmdb_id}", append_to_response="keywords,credits")

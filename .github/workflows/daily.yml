@@ -1,0 +1,51 @@
+name: Recomendações diárias
+
+on:
+  schedule:
+    - cron: "17 9 * * *"   # 06:17 em Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -q -r requirements.txt
+      - name: Gerar catálogo
+        env:
+          PYTHONPATH: src
+          STREMIO_AUTH_KEY: ${{ secrets.STREMIO_AUTH_KEY }}
+          STREMIO_EMAIL: ${{ secrets.STREMIO_EMAIL }}
+          STREMIO_PASSWORD: ${{ secrets.STREMIO_PASSWORD }}
+          TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
+          TMDB_ACCOUNT_ID: ${{ secrets.TMDB_ACCOUNT_ID }}
+          TMDB_SESSION_ID: ${{ secrets.TMDB_SESSION_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: python -m my_stremio.pipeline build/addon
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/addon
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
