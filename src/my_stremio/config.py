@@ -23,7 +23,8 @@ class Settings:
     scorer: str
     anthropic_api_key: str | None
     anthropic_model: str
-    typesafe_api_key: str | None
+    jev_api_key: str | None
+    jev_provider: str
     language: str
     region: str
     candidates_per_run: int
@@ -51,7 +52,8 @@ def load() -> Settings:
         scorer=os.getenv("SCORER", "auto"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-5-5"),
-        typesafe_api_key=os.getenv("TYPESAFE_API_KEY"),
+        jev_api_key=os.getenv("COMMAND_CODE_API_KEY") or os.getenv("TYPESAFE_API_KEY"),
+        jev_provider="commandcode" if os.getenv("COMMAND_CODE_API_KEY") else "typesafe",
         language=os.getenv("LANGUAGE", "pt-BR"),
         region=os.getenv("REGION", "BR"),
         candidates_per_run=int(os.getenv("CANDIDATES_PER_RUN", "300")),

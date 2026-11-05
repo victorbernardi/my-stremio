@@ -1,4 +1,7 @@
-"""Scorer via Jev (TypeSafe AI) — https://docs.typesafe.ai
+"""Scorer via Jev — pela Command Code (padrão) ou direto na TypeSafe.
+
+Command Code: https://commandcode.ai/docs/provider#decision-models-typesafe-jev
+TypeSafe:     https://docs.typesafe.ai/api/system-one
 
 Uma chamada por candidato (padrão do cookbook de re-ranking), em paralelo:
   state     = perfil de gosto + ficha do título
@@ -11,7 +14,10 @@ import httpx
 
 from .base import Score
 
-API = "https://api.typesafe.ai/v1/systemone"
+PROVIDERS = {
+    "commandcode": ("https://api.commandcode.ai/provider/v1/systemone", "typesafe/jev"),
+    "typesafe": ("https://api.typesafe.ai/v1/systemone", "jev-latest"),
+}
 
 REASONS = {
     "genero": "O gênero é o que mais combina (ou destoa) do gosto",
@@ -39,9 +45,10 @@ QUESTIONS = {
 
 
 class JevScorer:
-    def __init__(self, api_key: str | None, model: str = "jev-latest", workers: int = 12):
+    def __init__(self, api_key: str | None, provider: str = "commandcode", workers: int = 12):
         if not api_key:
-            raise RuntimeError("TYPESAFE_API_KEY ausente.")
+            raise RuntimeError("Chave do Jev ausente (COMMAND_CODE_API_KEY ou TYPESAFE_API_KEY).")
+        self.url, model = PROVIDERS[provider]
         self.client = httpx.Client(
             headers={"Authorization": f"Bearer {api_key}"}, timeout=30
         )
@@ -60,7 +67,7 @@ class JevScorer:
         }
         body = {"model": self.model, "state": state, "questions": QUESTIONS}
         for attempt in range(4):
-            r = self.client.post(API, json=body)
+            r = self.client.post(self.url, json=body)
             if r.status_code in (429, 529, 500, 502, 503):
                 time.sleep(2 ** attempt)
                 continue

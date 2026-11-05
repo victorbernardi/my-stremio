@@ -43,12 +43,12 @@ def get_scorer(settings) -> Scorer:
     )
     choice = settings.scorer
     if choice == "auto":
-        choice = "jev" if settings.typesafe_api_key else "haiku"
+        choice = "jev" if settings.jev_api_key else "haiku"
     if choice == "jev":
         from .jev import JevScorer
-        print("Scorer: Jev" + (" (reserva: Haiku)" if haiku else ""))
-        return FallbackScorer(JevScorer(settings.typesafe_api_key), haiku)
+        print(f"Scorer: Jev via {settings.jev_provider}" + (" (reserva: Haiku)" if haiku else ""))
+        return FallbackScorer(JevScorer(settings.jev_api_key, settings.jev_provider), haiku)
     if not haiku:
-        raise RuntimeError("Nenhum scorer disponível: defina TYPESAFE_API_KEY ou ANTHROPIC_API_KEY.")
+        raise RuntimeError("Nenhum scorer disponível: defina COMMAND_CODE_API_KEY, TYPESAFE_API_KEY ou ANTHROPIC_API_KEY.")
     print("Scorer: Haiku")
     return haiku
