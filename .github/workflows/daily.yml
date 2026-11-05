@@ -43,6 +43,7 @@ jobs:
           COMMAND_CODE_API_KEY: ${{ secrets.COMMAND_CODE_API_KEY }}
           MDBLIST_API_KEY: ${{ secrets.MDBLIST_API_KEY }}
           SNAPSHOT_PATH: ${{ runner.temp }}/snapshot.json
+          IMPORT_KEY: ${{ secrets.IMPORT_KEY }}
         run: python -m my_stremio.pipeline build/addon
       - name: Registrar recomendações do dia (criptografado)
         env:

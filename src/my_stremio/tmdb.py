@@ -1,4 +1,6 @@
 """TMDB: notas do usuário (label explícito), candidatos e metadados."""
+import os
+
 import httpx
 
 API = "https://api.themoviedb.org/3"
@@ -41,6 +43,8 @@ class TMDB:
         r = self.c.post("/authentication/session/new", json={"request_token": token})
         r.raise_for_status()
         session_id = r.json()["session_id"]
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            print(f"::add-mask::{session_id}", flush=True)
         account_id = str(self._get("/account", session_id=session_id)["id"])
         return account_id, session_id
 

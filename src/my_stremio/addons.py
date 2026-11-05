@@ -16,6 +16,7 @@ Regras de segurança (repo público):
   - addons protegidos do Stremio nunca são removidos.
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -51,8 +52,10 @@ def set_collection(auth_key: str, addons: list[dict]) -> None:
 
 
 def _name(a: dict) -> str:
+    """Nome + id do addon, sem trechos hexadecimais (ids de usuário/UUIDs) — o log é público."""
     m = a.get("manifest", {})
-    return f"{m.get('name', '?')} ({m.get('id', '?')})"
+    safe_id = re.sub(r"[0-9a-fA-F]{6,}(-[0-9a-fA-F]+)*", "…", m.get("id", "?"))
+    return f"{m.get('name', '?')} ({safe_id})"
 
 
 def _find(addons: list[dict], match: str) -> int:

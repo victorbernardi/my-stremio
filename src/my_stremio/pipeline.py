@@ -2,6 +2,7 @@
 
 Uso: python -m my_stremio.pipeline [pasta_saida]   (padrão: build/addon)
 """
+import hashlib
 import json
 import os
 import sys
@@ -144,11 +145,26 @@ def write_addon(out: Path, catalogs: dict[tuple[str, str], list[dict]]) -> None:
         d = out / "catalog" / stype
         d.mkdir(parents=True, exist_ok=True)
         (d / f"{slug}-{suffix}.json").write_text(json.dumps({"metas": metas}, ensure_ascii=False))
-    (out / ".nojekyll").write_text("")
+
+
+def addon_slug() -> str:
+    """Caminho secreto do addon no Pages (sem ele, ninguém acha o catálogo). Nunca é impresso."""
+    key = os.getenv("IMPORT_KEY")
+    if not key:
+        return ""
+    slug = hashlib.sha256(f"my-stremio-addon:{key}".encode()).hexdigest()[:32]
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        print(f"::add-mask::{slug}", flush=True)
+    return slug
 
 
 def main() -> None:
-    out = Path(sys.argv[1] if len(sys.argv) > 1 else "build/addon")
+    site = Path(sys.argv[1] if len(sys.argv) > 1 else "build/addon")
+    slug = addon_slug()
+    out = site / slug if slug else site
+    site.mkdir(parents=True, exist_ok=True)
+    (site / ".nojekyll").write_text("")
+    (site / "index.html").write_text("")
     s = config.load()
     tmdb = TMDB(s.tmdb_read_token, s.language)
     scorer = get_scorer(s)
@@ -253,7 +269,7 @@ def main() -> None:
     for metas in catalogs.values():
         for m in metas:
             unique.setdefault(m["id"], m["_poster"])
-    base = os.getenv("PAGES_BASE_URL", "https://victorbernardi.github.io/my-stremio")
+    base = os.getenv("PAGES_BASE_URL", "https://victorbernardi.github.io/my-stremio") + (f"/{slug}" if slug else "")
     urls = posters.build(out, list(unique.values()), os.getenv("MDBLIST_API_KEY"), base,
                          datetime.now(timezone.utc).strftime("%Y%m%d"))
     for metas in catalogs.values():
@@ -263,7 +279,7 @@ def main() -> None:
 
     write_addon(out, catalogs)
     resumo = " | ".join(f"{slug}-{st}: {len(v)}" for (st, slug), v in catalogs.items())
-    print(f"Addon gerado em {out} — {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC | {resumo}")
+    print(f"Addon gerado — {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC | {resumo}")
 
 
 if __name__ == "__main__":
