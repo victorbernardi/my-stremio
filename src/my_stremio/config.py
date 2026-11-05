@@ -67,6 +67,6 @@ def load() -> Settings:
         jev_provider="commandcode" if os.getenv("COMMAND_CODE_API_KEY") else "typesafe",
         language=os.getenv("LANGUAGE", "pt-BR"),
         region=os.getenv("REGION", "BR"),
-        candidates_per_run=int(os.getenv("CANDIDATES_PER_RUN", "300")),
-        catalog_size=int(os.getenv("CATALOG_SIZE", "50")),
+        candidates_per_run=int(os.getenv("CANDIDATES_PER_RUN", "600")),
+        catalog_size=int(os.getenv("CATALOG_SIZE", "100")),
     )
